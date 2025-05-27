@@ -1,0 +1,1 @@
+In this repository you can find the code for the paper "A Comparative Study of Boosting, Deep Learning, and Graph Neural Networks for Multi-Label GO Term Prediction in Flavobacterium Proteins" by M Mishkatur Rahman, Yusuf Akbulut, and Harun Pirim.
