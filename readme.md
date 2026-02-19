@@ -1,87 +1,95 @@
 # GO-Flavo: Multi-Label Gene Ontology Term Prediction for Flavobacterium Proteins
 
-This repository contains the implementation and experiments for the research paper: **"A Comparative Study of Boosting, Deep Learning, and Graph Neural Networks for Multi-Label GO Term Prediction in Flavobacterium Proteins"** by M Mishkatur Rahman, Yusuf Akbulut, and Harun Pirim.
+This repository contains the implementation and experiments for the research paper: **"A Comparative Study of Boosting, Deep Learning, and Graph Neural Networks for Multi-Label Gene Ontology Term Prediction in Flavobacterium Proteins"**, submitted to Engineering Applications of Artificial Intelligence (EAAI-25-16789).
+
+Authors: Yusuf Akbulut, M Mishkatur Rahman, and Harun Pirim.
 
 ## Overview
 
-This project implements and compares three different machine learning approaches for predicting Gene Ontology (GO) terms in Flavobacterium proteins:
-- **XGBoost** (Gradient Boosting)
-- **Deep Neural Networks (DNN)**
-- **Graph Neural Networks (GNN)**
+This project develops and compares taxon-specific machine learning models for predicting Gene Ontology (GO) terms in Flavobacterium proteins. Five models are trained and evaluated:
 
-The study focuses on multi-label classification where each protein can be associated with multiple GO terms across three categories: Biological Process (BP), Cellular Component (CC), and Molecular Function (MF).
+- **XGBoost** -- gradient-boosted decision trees (traditional ML baseline)
+- **DNN** -- fully connected deep neural network
+- **GAT** -- Graph Attention Network
+- **GCN** -- Graph Convolutional Network
+- **GraphSAGE** -- inductive graph learning via neighbor sampling
+
+Models are benchmarked against three general-purpose GO predictors (ProteInfer, DeepGO-SE, NetGO 4.0) to quantify the advantage of taxon-specific training.
 
 ## Dataset
 
-The dataset consists of **9,947 Flavobacterium protein sequences** with their corresponding GO term annotations. The proteins are annotated with GO terms that have a minimum frequency of 4 occurrences in the dataset.
+- **279 UniProt reference/representative Flavobacterium proteomes**
+- **35,554 protein sequences** after quality filtering (annotation score >= 3, no ambiguous residues, length <= 1,022)
+- **762 GO terms** (minimum frequency 4) across Molecular Function, Biological Process, and Cellular Component
+- **70/15/15** stratified multi-label train/validation/test split
 
-### Data Files
+### Features
 
-- `final_dataset.csv` - Complete dataset with protein sequences and GO annotations
-- `final_dataset_frequency_4.csv` - Filtered dataset with GO terms having frequency ≥ 4
-- `sequence_graph.graphml` - Protein similarity graph for GNN approach
-- `deep_go_se_*.tsv` - DeepGOse baseline predictions for BP, CC, and MF
-- `proteinfer.tsv` - Proteinfer baseline predictions
-- `netG0_*.txt` - NetGO baseline predictions
+| Feature set | Dimensions | Source |
+|---|---|---|
+| BioPython | 29 | Amino acid composition, molecular weight, pI, aromaticity, instability, GRAVY, secondary structure fractions |
+| ESM-2 embeddings | 320 | `facebook/esm2_t6_8M_UR50D` mean-pooled last hidden state |
+| **Total** | **349** | |
 
-## Methods
+### Graph construction
 
-### 1. XGBoost Approach
-- Uses ESM (Evolutionary Scale Modeling) protein embeddings
-- Gradient boosting classifier for multi-label prediction
-- Optimized hyperparameters through grid search
+A protein similarity graph is constructed from pairwise cosine similarity of ESM-2 embeddings at threshold 0.99, yielding 2.8M edges with label homophily 0.92.
 
-### 2. Deep Neural Network (DNN)
-- Multi-layer feedforward neural network
-- Input: ESM embeddings and additional protein features
-- Multi-label output with sigmoid activation
-- Dropout regularization and early stopping
+## Key Results
 
-### 3. Graph Neural Network (GNN)
-- Constructs protein similarity graph based on sequence homology
-- Uses Graph Convolutional Networks (GCN) for node classification
-- Incorporates both node features (ESM embeddings) and graph structure
-- Message passing for learning protein relationships
+| Model | Micro F1 | Macro F1 | Weighted F1 |
+|---|---|---|---|
+| **DNN** | **0.93** | **0.89** | **0.93** |
+| XGBoost | 0.90 | 0.80 | 0.89 |
+| GraphSAGE | 0.81 | 0.81 | 0.85 |
+| GAT | 0.78 | 0.78 | 0.84 |
+| GCN | 0.77 | 0.79 | 0.84 |
+| ProteInfer | 0.49 | 0.52 | 0.65 |
+| NetGO 4.0 | 0.35 | 0.47 | 0.48 |
+| DeepGO-SE | 0.19 | 0.07 | 0.13 |
 
-## File Structure
+DNN advantage over XGBoost confirmed by paired bootstrap test (B=10,000): Micro F1 +0.034 [95% CI: +0.030, +0.038].
+
+## Repository Structure
 
 ```
-├── GNN_Flavo_Final.ipynb          # Graph Neural Network implementation
-├── XGBoost_DNN_flavo.ipynb        # XGBoost and DNN implementations  
-├── ablation.ipynb                 # Ablation study comparing feature sets
-├── compare_results.py             # Evaluation script for different methods
-├── data/                          # Dataset and baseline predictions
-│   ├── final_dataset.csv          # Complete protein dataset
-│   ├── final_dataset_frequency_4.csv  # Filtered dataset
-│   ├── sequence_graph.graphml     # Protein similarity graph
-│   ├── deep_go_se_*.tsv          # DeepGOse baseline predictions
-│   ├── proteinfer.tsv            # Proteinfer baseline predictions
-│   └── netG0_*.txt               # NetGO baseline predictions
-└── readme.md                     # This file
+./
+├── 0_data_prep.ipynb           # Proteome download, filtering, feature extraction
+├── 1_XGBoost.py                # XGBoost multi-label training and evaluation
+├── 2_DNN.py                    # DNN training and evaluation
+├── 3_compare_results.py        # Comparison with general-purpose baselines
+├── 5_per_go_analysis.py        # Per-GO-term and per-category F1 analysis
+├── 6_ablation.py               # Feature ablation (All / ESM-2 / BioPython)
+├── 7_statistical_analysis.py   # Paired bootstrap significance testing
+├── 8_heatmap.py                # F1 deviation heatmap visualization
+├── gnn/
+│   ├── build_graph.py          # ESM-2 cosine similarity graph construction
+│   ├── data_utils.py           # PyG data object creation and splitting
+│   └── train_gnn.py            # GAT / GCN / GraphSAGE training
+└── readme.md                   # This file
 ```
 
-## Baseline Comparisons
+## Requirements
 
-The study compares against established protein function prediction tools:
-- **Proteinfer**: Sequence-based GO term prediction
-- **DeepGOse**: Deep learning approach for GO prediction
-- **NetGO**: Network-based GO term prediction
+- Python 3.10+
+- PyTorch, PyTorch Geometric
+- Transformers (HuggingFace) for ESM-2
+- XGBoost, scikit-learn, BioPython
+- pandas, numpy, matplotlib, seaborn
 
 ## Citation
 
-If you use this code or dataset in your research, please cite:
-
 ```bibtex
-@article{go_flavo_2025,
-  title={A Comparative Study of Boosting, Deep Learning, and Graph Neural Networks for Multi-Label GO Term Prediction in Flavobacterium Proteins},
-  author={Rahman, M Mishkatur and Akbulut, Yusuf and Pirim, Harun},
-  journal={[Not yet published]},
-  year={2025}
+@article{go_flavo_2026,
+  title={A Comparative Study of Boosting, Deep Learning, and Graph Neural Networks
+         for Multi-Label Gene Ontology Term Prediction in Flavobacterium Proteins},
+  author={Akbulut, Yusuf and Rahman, M Mishkatur and Pirim, Harun},
+  journal={Engineering Applications of Artificial Intelligence},
+  year={2026},
+  note={Under review}
 }
 ```
 
 ## Acknowledgments
 
-- ESM embeddings from Facebook AI Research
-- GO annotations from Gene Ontology Consortium
-- Baseline methods from respective authors
+This research is supported by USDA NIFA grant 2021-67015-34532.
